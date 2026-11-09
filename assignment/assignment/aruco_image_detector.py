@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+# change output message topic type: from Image to CameraInfo (not sure)
+# change condition for publishing: always publish camera image with modficiations
+# add condition checking if marker is within certain range (has specific size in pixels) to publish signal to control node
+# make topic names and parameters configurable through launch file (ROS parameters) -> needed to run code on ROSbot
+
 import math
 
 import cv2
@@ -16,19 +21,27 @@ class ImageProcessorNode(Node):
     def __init__(self):
         super().__init__('aruco_image_detector_py')
 
-        self.bridge = CvBridge()
+        self.bridge = CvBridge() # bridge for converting ROS images to OpenCV images
+
+        # dictionary for detecting ArUco markers correctly (ArUco marker patterns defined in dictionary)
         self.dictionary = cv2.aruco.getPredefinedDictionary(
             cv2.aruco.DICT_ARUCO_ORIGINAL
         )
+
+        # default detector parameters to obtain marker corners and ids
         self.detector_parameters = cv2.aruco.DetectorParameters_create()
+
+        # parameter to control whether to show the annotated image in a window
         self.show_image = self.declare_parameter('show_image', True).value
 
         self.sub = self.create_subscription(
             Image, '/camera/image', self.image_callback, 10
         )
         self.pub = self.create_publisher(Image, 'marker_image', 10)
+        self.pub_id = self.create_publisher(int, 'marker_id', 10)
 
         if self.show_image:
+            # define name of window where topic frames will be displayed
             cv2.namedWindow('marker_image', cv2.WINDOW_AUTOSIZE)
 
         self.get_logger().info(
@@ -52,6 +65,7 @@ class ImageProcessorNode(Node):
 
     def image_callback(self, msg):
         try:
+            # converting image from ROS Image message to OpenCV image (matrix format)
             cv_image = self.bridge.imgmsg_to_cv2(
                 msg, desired_encoding='bgr8'
             )
@@ -59,6 +73,7 @@ class ImageProcessorNode(Node):
             self.get_logger().error(f'Could not convert camera image: {error}')
             return
 
+        # convert the image to grayscale for marker detection
         gray_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(
             gray_image,
@@ -66,19 +81,25 @@ class ImageProcessorNode(Node):
             parameters=self.detector_parameters,
         )
 
-        output_image = cv_image.copy()
+        output_image = cv_image.copy() # for later modification (circle + id)
         detected_markers = []
         if marker_ids is not None:
             for marker_id, corners in zip(marker_ids.flatten(), marker_corners):
-                side_length = self._marker_side_length(corners)
-                if side_length >= MIN_MARKER_SIDE_PX:
                     detected_markers.append((int(marker_id), corners))
+                    #side_length = self._marker_side_length(corners)
+                    #if side_length >= MIN_MARKER_SIDE_PX:
+                        # TODO: publish signal to control node
+                        # with topic type int, publish marker id
+                        # self.pub_id.publish(marker_id)
+                        # with service call, publish marker id
 
         if detected_markers:
+            # if any markers are detected, draw a circle in the center of the image (around marker)and write its id
             center = (output_image.shape[1] // 2, output_image.shape[0] // 2)
-            cv2.circle(output_image, center, 50, (0, 255, 0), 3)
+            cv2.circle(output_image, center, 50, (0, 255, 0), 3) # circle of radius 50 pixels
 
             for marker_id, corners in detected_markers:
+                '''
                 outline = corners.reshape((4, 2)).round().astype('int32')
                 cv2.polylines(
                     output_image,
@@ -123,11 +144,17 @@ class ImageProcessorNode(Node):
                     thickness,
                     cv2.LINE_AA,
                 )
+                '''
+                label = f'ID: {marker_id}'
+                label_position = (center[0] - 50, center[1] - 60)
+                cv2.putText(output_image, label, label_position, cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
 
         if self.show_image:
+            # display the annotated image in a window
             cv2.imshow('marker_image', output_image)
             cv2.waitKey(1)
 
+        # converting the annotated OpenCV image back to ROS Image message and publishing it on the topic
         output_msg = self.bridge.cv2_to_imgmsg(output_image, encoding='bgr8')
         output_msg.header = msg.header
         self.pub.publish(output_msg)
