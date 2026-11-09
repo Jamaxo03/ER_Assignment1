@@ -129,20 +129,33 @@ def generate_launch_description():
             "/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry",
             "/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model",
             #"/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V",
+            # for forwarding directly the image  topic (without compression)
             #"/camera/image@sensor_msgs/msg/Image[gz.msgs.Image",
             "/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo",
             "/camera_joint/cmd_pos@std_msgs/msg/Float64]gz.msgs.Double",
             "/imu@sensor_msgs/msg/Imu[gz.msgs.IMU",
-           # "/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
-           # "/scan/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked",
-           # "/camera/depth_image@sensor_msgs/msg/Image[gz.msgs.Image",
-           # "/camera/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked",
+            # "/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
+            # "/scan/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked",
+            # for RGBD camera
+            # "/camera/depth_image@sensor_msgs/msg/Image[gz.msgs.Image",
+            # "/camera/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked",
 
         ],
         output="screen",
         parameters=[
             {'use_sim_time': True},
         ]
+    )
+
+    aruco_image_detector_node = Node(
+        package='erl1',
+        executable='aruco_image_detector_py',
+        name='aruco_image_detector_py',
+        output='screen',
+        parameters=[
+            {'use_sim_time': True,
+             'show_image': True},
+        ],
     )
 
 
@@ -160,5 +173,6 @@ def generate_launch_description():
     launchDescriptionObject.add_action(gz_bridge_node)
     launchDescriptionObject.add_action(gz_image_bridge_node)
     launchDescriptionObject.add_action(ekf_node)
+    launchDescriptionObject.add_action(aruco_image_detector_node)
 
     return launchDescriptionObject

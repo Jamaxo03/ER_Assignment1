@@ -7,9 +7,32 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS aruco core highgui imgproc)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+
+add_executable(aruco_image_detector src/aruco_image_detector.cpp)
+target_include_directories(aruco_image_detector PRIVATE ${OpenCV_INCLUDE_DIRS})
+ament_target_dependencies(aruco_image_detector
+  cv_bridge
+  image_transport
+  rclcpp
+  sensor_msgs
+)
+target_link_libraries(aruco_image_detector ${OpenCV_LIBS})
+
+install(TARGETS
+  aruco_image_detector
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  erl1/aruco_image_detector.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME aruco_image_detector_py
+)
 
 install(DIRECTORY
   launch
