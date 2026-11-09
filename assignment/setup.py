@@ -7,7 +7,7 @@ package_name = 'assignment'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(exclude=['test']),
+    packages=find_packages(),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -20,12 +20,7 @@ setup(
     maintainer='root',
     maintainer_email='root@todo.todo',
     description='TODO: Package description',
-    license='Apache-2.0',
-    extras_require={
-        'test': [
-            'pytest',
-        ],
-    },
+    license='TODO: License declaration',
     entry_points={
         'console_scripts': [
             'aruco_detector = assignment.aruco_image_detector:main',
