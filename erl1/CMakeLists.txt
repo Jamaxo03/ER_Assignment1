@@ -28,12 +28,6 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(PROGRAMS
-  erl1/aruco_image_detector.py
-  DESTINATION lib/${PROJECT_NAME}
-  RENAME aruco_image_detector_py
-)
-
 install(DIRECTORY
   launch
   worlds

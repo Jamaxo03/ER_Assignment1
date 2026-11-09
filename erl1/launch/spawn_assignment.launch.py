@@ -147,18 +147,6 @@ def generate_launch_description():
         ]
     )
 
-    aruco_image_detector_node = Node(
-        package='erl1',
-        executable='aruco_image_detector_py',
-        name='aruco_image_detector_py',
-        output='screen',
-        parameters=[
-            {'use_sim_time': True,
-             'show_image': True},
-        ],
-    )
-
-
 
     launchDescriptionObject = LaunchDescription()
 
@@ -173,6 +161,6 @@ def generate_launch_description():
     launchDescriptionObject.add_action(gz_bridge_node)
     launchDescriptionObject.add_action(gz_image_bridge_node)
     launchDescriptionObject.add_action(ekf_node)
-    launchDescriptionObject.add_action(aruco_image_detector_node)
+
 
     return launchDescriptionObject
