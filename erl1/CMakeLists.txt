@@ -13,20 +13,6 @@ find_package(OpenCV REQUIRED COMPONENTS aruco core highgui imgproc)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
-add_executable(aruco_image_detector src/aruco_image_detector.cpp)
-target_include_directories(aruco_image_detector PRIVATE ${OpenCV_INCLUDE_DIRS})
-ament_target_dependencies(aruco_image_detector
-  cv_bridge
-  image_transport
-  rclcpp
-  sensor_msgs
-)
-target_link_libraries(aruco_image_detector ${OpenCV_LIBS})
-
-install(TARGETS
-  aruco_image_detector
-  DESTINATION lib/${PROJECT_NAME}
-)
 
 install(DIRECTORY
   launch
