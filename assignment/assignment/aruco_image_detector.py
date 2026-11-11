@@ -23,9 +23,9 @@ class ImageProcessorNode(Node):
     def __init__(self):
         super().__init__('aruco_image_detector_py')
 
-        self.bridge = CvBridge() # bridge for converting ROS images to OpenCV images
+        self.bridge = CvBridge() 
 
-        # dictionary for detecting ArUco markers correctly (ArUco marker patterns defined in dictionary)
+        # dictionary for detecting ArUco markers correctly
         self.dictionary = cv2.aruco.getPredefinedDictionary(
             cv2.aruco.DICT_ARUCO_ORIGINAL
         )
@@ -39,7 +39,7 @@ class ImageProcessorNode(Node):
         self.sub = self.create_subscription(
             CompressedImage, '/camera/image/compressed', self.image_callback, 10
         )
-        self.pub = self.create_publisher(Image, 'camera/marker_image', 10)
+        self.pub = self.create_publisher(Image, '/marker_image', 10)
         self.pub_marker = self.create_publisher(MarkerArray, '/marker_array', 10)
 
         if self.show_image:
@@ -68,7 +68,7 @@ class ImageProcessorNode(Node):
     def image_callback(self, msg):
         try:
             # converting image from ROS Image message to OpenCV image (matrix format)
-            cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8')  # Convert to OpenCV image
+            cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8') 
         except CvBridgeError as error:
             self.get_logger().error(f'Could not convert camera image: {error}')
             return
@@ -81,11 +81,9 @@ class ImageProcessorNode(Node):
             parameters=self.detector_parameters,
         )
 
-        output_image = cv_image.copy()  # annotated copy (circle + id)
-
         # all the markers seen in this frame (empty list = no marker in view)
         observations = MarkerArray()
-        observations.header = msg.header  # same stamp as the camera frame
+        observations.header = msg.header
 
         if marker_ids is not None:
             for marker_id, corners in zip(marker_ids.flatten(), marker_corners):
@@ -95,30 +93,38 @@ class ImageProcessorNode(Node):
                 # pixel features for the IBVS
                 marker = Marker()
                 marker.id = int(marker_id)
-                marker.u = float(x)  # marker center [px]
+                # centre
+                marker.u = float(x) 
                 marker.v = float(y)
-                marker.side = float(self._marker_side_length(corners))  # apparent side s [px]
+                # pixel size
+                marker.side = float(self._marker_side_length(corners))
+
                 observations.markers.append(marker)
 
-                # drawing
-                center = (int(x), int(y))
-                cv2.circle(output_image, center, int(radius), (0, 255, 0), 3)
-                label_position = (center[0] - 30, max(center[1] - int(radius) - 10, 30))
-                cv2.putText(output_image, f'id {marker.id}', label_position, cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+                if marker.side >= MIN_MARKER_SIDE_PX:
+                    output_image = cv_image.copy()  # annotated copy (circle + id)
 
-        # published on every frame, also when empty (the control node must know when the marker is lost)
+                    # drawing
+                    center = (int(x), int(y))
+                    cv2.circle(output_image, center, int(radius), (0, 255, 0), 3)
+                    label_position = (center[0] - 30, max(center[1] - int(radius) - 10, 30))
+                    cv2.putText(output_image, f'id {marker.id}', label_position, cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+
+                    # converting the annotated OpenCV image back to ROS Image message and publishing it on the topic
+                    output_msg = self.bridge.cv2_to_imgmsg(output_image, encoding='bgr8') 
+                    output_msg.header = msg.header
+                    self.pub.publish(output_msg)
+
+                    if self.show_image:
+                        # display the annotated image in a window
+                        cv2.imshow('marker_image', output_image)
+                        
+
+        # published on every frame, also when empty
         self.pub_marker.publish(observations)
-        
-        
-        if self.show_image:
-            # display the annotated image in a window
-            cv2.imshow('marker_image', output_image)
-            cv2.waitKey(1)
 
-        # converting the annotated OpenCV image back to ROS Image message and publishing it on the topic
-        output_msg = self.bridge.cv2_to_imgmsg(output_image, encoding='bgr8')  # Convert to Image
-        output_msg.header = msg.header
-        self.pub.publish(output_msg)
+        if self.show_image:
+            cv2.waitKey(1)
 
     def destroy_node(self):
         if self.show_image:

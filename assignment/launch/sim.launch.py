@@ -12,7 +12,6 @@ def generate_launch_description():
     pkg_assignment = get_package_share_directory('assignment')
     config = os.path.join(pkg_assignment, 'config', 'sim.yaml')
 
-    # Gazebo + robot + bridges + EKF (professor's launch file)
     simulation = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_erl1, 'launch', 'spawn_assignment.launch.py')))
