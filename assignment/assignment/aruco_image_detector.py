@@ -13,7 +13,7 @@ from assignment_interfaces.msg import Marker, MarkerArray
 
 
 MIN_MARKER_SIDE_PX = 166.0
-
+MAX_MARKER_SIDE_PX = 100.0
 
 class ImageProcessorNode(Node):
     def __init__(self):
@@ -23,6 +23,7 @@ class ImageProcessorNode(Node):
 
         # becomes True after /marker_image has been published once
         self.marker_image_published = False
+        self.marker_id_to_be_seen = 1
 
         # dictionary for detecting ArUco markers correctly
         self.dictionary = cv2.aruco.getPredefinedDictionary(
@@ -100,6 +101,13 @@ class ImageProcessorNode(Node):
 
                 observations.markers.append(marker)
 
+                if marker.id > self.marker_id_to_be_seen and marker.side >= MAX_MARKER_SIDE_PX:
+                    # necessary to check also MAX_MARKER_SIDE_PX, since the foruth marker gets spotted right after 
+                    # turning in front of the second one, thus not being able to spot it afterwards
+                    self.marker_image_published = False
+                    self.marker_id_to_be_seen = marker.id
+
+                #if marker.side >= MIN_MARKER_SIDE_PX and not self.marker_image_published:
                 if marker.side >= MIN_MARKER_SIDE_PX and not self.marker_image_published:
                     output_image = cv_image.copy()  # annotated copy (circle + id)
 

@@ -137,10 +137,10 @@ void MarkerSubscriber::markerCallback(
 
     for(const auto& marker : msg->markers)
     {
-        bool already_executed =
-            executed_markers_.count(marker.id);
+        //bool already_executed =
+        //    executed_markers_.count(marker.id);
 
-        if(!already_executed &&
+        if(executed_markers_.find(marker.id) == executed_markers_.end() &&
         marker.side > best_side)
         {
             best_side = marker.side;
@@ -234,8 +234,14 @@ void MarkerSubscriber::fsm(){
         {
             // 166 px distanza per eseguire istruzione
 
-            const double desired_side = 166.0;
-            const double tolerance = 5.0;
+            double desired_side = 166.0;
+            double tolerance = 5.0;
+
+            if(current_id_ == 4)
+            {
+                desired_side = 168.0;
+                tolerance = 0.5;
+            }
 
             double error = desired_side - current_side_;
 
@@ -294,7 +300,10 @@ void MarkerSubscriber::fsm(){
                   RCLCPP_INFO(
                     this->get_logger(),
                     "Marker 4 detected. Mission completed.");
-                    current_state_ = FINISH;
+                  current_state_ = FINISH;
+
+                  timer_->cancel();
+
                 break;
 
                 default:
@@ -344,12 +353,12 @@ void MarkerSubscriber::fsm(){
         {
             // stops the robot
             stopRobot();
-            int count = 1;
-            if(count == 1){
-                RCLCPP_INFO(
-                    this->get_logger(),
-                    "Robot stopped. Assignment completed.");
-            }
+            RCLCPP_INFO(
+                this->get_logger(),
+                "Robot stopped. Assignment completed.");
+
+            timer_->cancel();
+
             break;
         }
 
