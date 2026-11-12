@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-# change output message topic type: from Image to CameraInfo (not sure)
-# change condition for publishing: always publish camera image with modficiations
-# add condition checking if marker is within certain range (has specific size in pixels) to publish signal to control node
-# make topic names and parameters configurable through launch file (ROS parameters) -> needed to run code on ROSbot
-
 import math
 
 import cv2
@@ -12,7 +7,7 @@ import rclpy
 from cv_bridge import CvBridge, CvBridgeError
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
-from std_msgs.msg import Int32
+#from std_msgs.msg import Int32
 from assignment_interfaces.msg import Marker, MarkerArray
 #from rclpy.qos import qos_profile_sensor_data
 
