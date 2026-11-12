@@ -14,6 +14,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
 from std_msgs.msg import Int32
 from assignment_interfaces.msg import Marker, MarkerArray
+#from rclpy.qos import qos_profile_sensor_data
 
 
 MIN_MARKER_SIDE_PX = 166.0
@@ -24,6 +25,9 @@ class ImageProcessorNode(Node):
         super().__init__('aruco_image_detector_py')
 
         self.bridge = CvBridge() 
+
+        # becomes True after /marker_image has been published once
+        self.marker_image_published = False
 
         # dictionary for detecting ArUco markers correctly
         self.dictionary = cv2.aruco.getPredefinedDictionary(
@@ -37,8 +41,8 @@ class ImageProcessorNode(Node):
         self.show_image = self.declare_parameter('show_image', True).value
 
         self.sub = self.create_subscription(
-            CompressedImage, '/camera/image/compressed', self.image_callback, 10
-        )
+            CompressedImage, '/camera/image/compressed', self.image_callback, 10)
+        
         self.pub = self.create_publisher(Image, '/marker_image', 10)
         self.pub_marker = self.create_publisher(MarkerArray, '/marker_array', 10)
 
@@ -101,7 +105,7 @@ class ImageProcessorNode(Node):
 
                 observations.markers.append(marker)
 
-                if marker.side >= MIN_MARKER_SIDE_PX:
+                if marker.side >= MIN_MARKER_SIDE_PX and not self.marker_image_published:
                     output_image = cv_image.copy()  # annotated copy (circle + id)
 
                     # drawing
@@ -114,6 +118,9 @@ class ImageProcessorNode(Node):
                     output_msg = self.bridge.cv2_to_imgmsg(output_image, encoding='bgr8') 
                     output_msg.header = msg.header
                     self.pub.publish(output_msg)
+
+                    self.marker_image_published = True
+                    self.get_logger().info(f'Marker {marker.id} reached (side {marker.side:.0f} px): /marker_image published')
 
                     if self.show_image:
                         # display the annotated image in a window
