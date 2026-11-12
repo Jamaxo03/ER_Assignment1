@@ -84,13 +84,13 @@ std::set<int> executed_markers_;
 // Marker subscriber constructor
 MarkerSubscriber::MarkerSubscriber()
 : Node("marker_subscriber"), 
-    current_state_(START),
-    rotation_angle_(0.0),
-    marker_visible_(false),
     current_id_(0),
     current_u_(0.0),
     current_v_(0.0),
     current_side_(0.0),
+    marker_visible_(false),
+    current_state_(START),
+    rotation_angle_(0.0),
     robot_x_(0.0),
     robot_y_(0.0),
     robot_yaw_(0.0)
@@ -341,6 +341,7 @@ void MarkerSubscriber::fsm(){
         }
 
         case FINISH:
+        {
             // stops the robot
             stopRobot();
             int count = 1;
@@ -349,7 +350,8 @@ void MarkerSubscriber::fsm(){
                     this->get_logger(),
                     "Robot stopped. Assignment completed.");
             }
-        break;
+            break;
+        }
 
         default:
         break;
