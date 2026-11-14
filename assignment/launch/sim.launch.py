@@ -24,4 +24,12 @@ def generate_launch_description():
         parameters=[config, {'use_sim_time': True}],
     )
 
-    return LaunchDescription([simulation, aruco_detector])
+    fsm_node = Node(
+        package='assignment',
+        executable='fsm_node',
+        name='fsm_node',
+        output='screen',
+        parameters=[config, {'use_sim_time': True}],
+    )
+
+    return LaunchDescription([simulation, aruco_detector, fsm_node])
