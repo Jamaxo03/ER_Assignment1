@@ -16,6 +16,22 @@ if [ "$1" == "--clean" ]; then
     shift  # remove --clean from the arguments forwarded to ros2 launch
 fi
 
+# kill every process left over by a previous simulation.
+# On WSL, Ctrl+C often leaves the Gazebo server ("gz sim") and the bridges
+# running in the background: a second server then answers the spawn request
+# (the robot appears in RViz but not in the visible Gazebo) and two physics
+# engines publish /clock and /odom at the same time (the robot "glitches").
+cleanup() {
+    for proc in "gz sim" parameter_bridge image_bridge robot_state_publisher \
+                ekf_node rviz2 aruco_detector fsm_node; do
+        pkill -f "$proc" 2>/dev/null || true   # || true: no match is not an error
+    done
+    sleep 1  # give the processes time to exit
+}
+cleanup
+# also clean up when the launch ends (Ctrl+C included)
+trap cleanup EXIT
+
 # ROS 2 Jazzy environment
 source /opt/ros/jazzy/setup.bash
 
