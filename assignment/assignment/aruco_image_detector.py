@@ -30,8 +30,16 @@ class ImageProcessorNode(Node):
             cv2.aruco.DICT_ARUCO_ORIGINAL
         )
 
-        # default detector parameters to obtain marker corners and ids
-        self.detector_parameters = cv2.aruco.DetectorParameters_create()
+        # detector with default parameters, to obtain marker corners and ids.
+        # OpenCV >= 4.7 (e.g. pip opencv-python) uses the ArucoDetector class,
+        # OpenCV 4.6 (Ubuntu python3-opencv) only has the legacy functions
+        if hasattr(cv2.aruco, 'ArucoDetector'):
+            detector = cv2.aruco.ArucoDetector(self.dictionary, cv2.aruco.DetectorParameters())
+            self.detect_markers = detector.detectMarkers
+        else:
+            parameters = cv2.aruco.DetectorParameters_create()
+            self.detect_markers = lambda image: cv2.aruco.detectMarkers(
+                image, self.dictionary, parameters=parameters)
 
         # parameter to control whether to show the annotated image in a window
         self.show_image = self.declare_parameter('show_image', True).value
@@ -75,11 +83,7 @@ class ImageProcessorNode(Node):
 
         # convert the image to grayscale for marker detection
         gray_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        marker_corners, marker_ids, _ = cv2.aruco.detectMarkers(
-            gray_image,
-            self.dictionary,
-            parameters=self.detector_parameters,
-        )
+        marker_corners, marker_ids, _ = self.detect_markers(gray_image)
 
         # all the markers seen in this frame (empty list = no marker in view)
         observations = MarkerArray()

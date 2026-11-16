@@ -1,2 +1,4 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Always check out text files with LF line endings, even on Windows:
+# the sources are built and executed inside Linux (WSL / ROSbot), where a
+# CRLF shebang ("python3\r") makes the Python nodes fail with exit code 127
+* text=auto eol=lf

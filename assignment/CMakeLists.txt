@@ -30,9 +30,12 @@ install(PROGRAMS
   RENAME aruco_detector
 )
 
+# launch files, YAML parameters and the group's custom Gazebo models
+# (the instructor's aruco_box_1..4 stay in ~/gazebo_models)
 install(DIRECTORY
   launch
   config
+  models
   DESTINATION share/${PROJECT_NAME}
 )
 

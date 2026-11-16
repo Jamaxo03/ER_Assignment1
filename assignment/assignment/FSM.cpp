@@ -22,6 +22,9 @@ private:
     double current_side_;
     bool marker_visible_ = false;
 
+// becomes true at the first /odom message: the simulation is running
+    bool odom_received_ = false;
+
 // set to save already executed markers
 std::set<int> executed_markers_;
 
@@ -161,6 +164,7 @@ void MarkerSubscriber::odomCallback(
     {
         robot_x_ = msg->pose.pose.position.x;
         robot_y_ = msg->pose.pose.position.y;
+        odom_received_ = true;  // robot spawned and odometry available
 
         // conversione quaternion -> yaw
         double qx = msg->pose.pose.orientation.x;
@@ -182,6 +186,13 @@ void MarkerSubscriber::fsm(){
     switch(current_state_){
 
         case START:
+
+            // wait until Gazebo is running and the robot publishes odometry,
+            // otherwise the first commands are lost and the yaw is not valid
+            if(!odom_received_)
+            {
+                break;
+            }
 
             RCLCPP_INFO(
                 this->get_logger(),
