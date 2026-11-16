@@ -2,9 +2,11 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -21,7 +23,7 @@ def generate_launch_description():
         executable='aruco_detector',
         name='aruco_detector',
         output='screen',
-        parameters=[config, {'use_sim_time': True}],
+        parameters=[config, {'use_sim_time': True, 'show_image': False}],
     )
 
     fsm_node = Node(
@@ -32,4 +34,15 @@ def generate_launch_description():
         parameters=[config, {'use_sim_time': True}],
     )
 
-    return LaunchDescription([simulation, aruco_detector, fsm_node])
+    take_photo_srv = Node(
+        package='assignment_interfaces',
+        executable='take_photo_service',
+        name='take_photo_service',
+        output='screen',
+        parameters=[{'use_sim_time': True, 'show_image': True}],
+        prefix='xterm -e'
+    )
+
+    return LaunchDescription([
+        simulation, aruco_detector, fsm_node, take_photo_srv
+    ])

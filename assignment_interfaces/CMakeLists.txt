@@ -7,16 +7,38 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS aruco core highgui imgproc)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/TakePhoto.srv"
   "msg/Marker.msg"
   "msg/MarkerArray.msg"
   DEPENDENCIES std_msgs
 )
 
-ament_export_dependencies(rosidl_default_runtime std_msgs)
+add_executable(take_photo_service src/take_photo_service.cpp)
+target_include_directories(take_photo_service PRIVATE ${OpenCV_INCLUDE_DIRS})
+ament_target_dependencies(take_photo_service
+  cv_bridge
+  image_transport
+  rclcpp
+  sensor_msgs
+  std_msgs
+)
+target_link_libraries(take_photo_service ${OpenCV_LIBS})
+
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(take_photo_service "${cpp_typesupport_target}")
+
+install(TARGETS take_photo_service DESTINATION lib/${PROJECT_NAME})
+
+ament_export_dependencies(rosidl_default_runtime rclcpp std_msgs)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
