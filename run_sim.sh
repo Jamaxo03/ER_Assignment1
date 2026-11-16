@@ -19,9 +19,8 @@ fi
 # ROS 2 Jazzy environment
 source /opt/ros/jazzy/setup.bash
 
-# let Gazebo find the instructor's aruco_box_1..4 models (~/.bashrc is not read
-# by scripts); the group's custom models in assignment/models are added by
-# sim.launch.py
+# let Gazebo find the instructor's aruco_box_1..4 models in ~/gazebo_models
+# (~/.bashrc is not read by scripts)
 export GZ_SIM_RESOURCE_PATH="$GZ_SIM_RESOURCE_PATH:$HOME/gazebo_models"
 
 # compile all packages (assignment_interfaces, erl1, assignment)
