@@ -31,9 +31,6 @@ private:
     // becomes true at the first /odom message: the simulation is running
     bool odom_received_ = false;
 
-// becomes true at the first /odom message: the simulation is running
-    bool odom_received_ = false;
-
 // set to save already executed markers
 std::set<int> executed_markers_;
 
