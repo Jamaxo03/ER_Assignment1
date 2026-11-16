@@ -5,8 +5,11 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "assignment_interfaces/msg/marker_array.hpp"
+#include "assignment_interfaces/srv/take_photo.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+
+using TakePhoto = assignment_interfaces::srv::TakePhoto;
 
 class MarkerSubscriber : public rclcpp::Node
 {
@@ -21,6 +24,12 @@ private:
     double current_v_;
     double current_side_;
     bool marker_visible_ = false;
+    bool service_response_received_ = false;
+    bool service_request_sent_ = false;
+    bool service_response_success_ = false;
+
+    // becomes true at the first /odom message: the simulation is running
+    bool odom_received_ = false;
 
 // set to save already executed markers
 std::set<int> executed_markers_;
@@ -32,6 +41,7 @@ std::set<int> executed_markers_;
         MOVE,
         ALIGN,
         APPROACH,
+        TAKE_PHOTO,
         EXECUTE,
         ROTATE,
         FINISH
@@ -67,6 +77,9 @@ std::set<int> executed_markers_;
 // stop robot function
     void stopRobot();
 
+// Sends request to take_photo_service to take photo of and publish it modfied
+    void take_photo_request();
+
 // markers array subscriber
     rclcpp::Subscription<assignment_interfaces::msg::MarkerArray>::SharedPtr marker_array_subscription_;
 
@@ -78,6 +91,9 @@ std::set<int> executed_markers_;
 
 // /cmd_vel publisher
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
+
+// service take_photo
+    rclcpp::Client<TakePhoto>::SharedPtr take_photo_client_;
 
 };
 
@@ -125,6 +141,7 @@ MarkerSubscriber::MarkerSubscriber()
                 "/cmd_vel",
                 10);
 
+        take_photo_client_ = this->create_client<TakePhoto>("take_photo");
     }
 
 // markerCallback definition
@@ -161,6 +178,7 @@ void MarkerSubscriber::odomCallback(
     {
         robot_x_ = msg->pose.pose.position.x;
         robot_y_ = msg->pose.pose.position.y;
+        odom_received_ = true;  // robot spawned and odometry available
 
         // conversione quaternion -> yaw
         double qx = msg->pose.pose.orientation.x;
@@ -183,6 +201,13 @@ void MarkerSubscriber::fsm(){
 
         case START:
 
+            // wait until Gazebo is running and the robot publishes odometry,
+            // otherwise the first commands are lost and the yaw is not valid
+            if(!odom_received_)
+            {
+                break;
+            }
+
             RCLCPP_INFO(
                 this->get_logger(),
                 "Robot started. Entering MOVE state.");
@@ -191,6 +216,11 @@ void MarkerSubscriber::fsm(){
         break;
 
         case MOVE:
+
+                RCLCPP_INFO(
+                this->get_logger(),
+                "MOVE state, current_id: %d.", current_id_);
+
             // muovo il robot avanti dopo aver eseguito un istruzione (o in partenza)
             // robot fermo
             // deve ripartire (comando ripartire) 
@@ -208,6 +238,11 @@ void MarkerSubscriber::fsm(){
 
         case ALIGN:
         {
+
+            RCLCPP_INFO(
+                this->get_logger(),
+                "ALIGN state, current_id: %d.", current_id_);
+
             // formula allineamento con il centro del marker    
 
             const double cx = 320.0;
@@ -232,6 +267,11 @@ void MarkerSubscriber::fsm(){
         
         case APPROACH:
         {
+
+            RCLCPP_INFO(
+                this->get_logger(),
+                "APPROACH state, current_id: %d.", current_id_);
+
             // 166 px distanza per eseguire istruzione
 
             double desired_side = 166.0;
@@ -239,6 +279,7 @@ void MarkerSubscriber::fsm(){
 
             if(current_id_ == 4)
             {
+                // diminuita distanza in px per garantire ultimo marker venga visto
                 desired_side = 168.0;
                 tolerance = 0.5;
             }
@@ -248,7 +289,8 @@ void MarkerSubscriber::fsm(){
             if(std::abs(error) < tolerance)
             {
                 stopRobot();
-                current_state_ = EXECUTE;
+                //current_state_ = EXECUTE;
+                current_state_ = TAKE_PHOTO;
             }
             else
             {
@@ -258,10 +300,28 @@ void MarkerSubscriber::fsm(){
 
         break;
         }
+
+        case TAKE_PHOTO:
+        {
+            if (service_response_received_) {
+                service_response_received_ = false;
+                service_request_sent_ = false;
+                current_state_ = EXECUTE;
+            } else if (!service_request_sent_) {
+                take_photo_request();
+            }
+            break;
+        }
         
         case EXECUTE:
 
+            RCLCPP_INFO(
+                this->get_logger(),
+                "EXECUTE state, current_id: %d.", current_id_);
+
             // id recognition(switch)
+
+            service_response_received_ = false;
 
             // update already used markers
             executed_markers_.insert(current_id_);
@@ -315,6 +375,11 @@ void MarkerSubscriber::fsm(){
 
         case ROTATE:
         {
+
+            RCLCPP_INFO(
+                this->get_logger(),
+                "ROTATE state, current_id: %d.", current_id_);
+
             // state to handle rotations
             static bool initialized = false;
             static double target_yaw;
@@ -392,6 +457,34 @@ void MarkerSubscriber::stopRobot()
     cmd_vel_pub_->publish(cmd);
 }
 
+// Sends request to take_photo_service to take photo of and publish it modfied
+void MarkerSubscriber::take_photo_request()
+{
+    if (!take_photo_client_->wait_for_service(std::chrono::seconds(1))) {
+        RCLCPP_WARN(this->get_logger(), "Waiting for take-photo service...");
+        return;
+    }
+
+    auto request = std::make_shared<TakePhoto::Request>();
+    request->request = true;
+
+    take_photo_client_->async_send_request(
+        request,
+        [this](rclcpp::Client<TakePhoto>::SharedFuture future) {
+            auto response = future.get();
+            service_response_success_ = response->success;
+            if (response->success) {
+                RCLCPP_INFO(
+                    this->get_logger(), "Take-photo succeeded; detected marker ID: %d",
+                    response->marker_id);
+            } else {
+                RCLCPP_WARN(this->get_logger(), "Take-photo service did not detect a marker.");
+            }
+            service_response_received_ = true;
+        }
+    );
+    service_request_sent_ = true;
+}
 
 
 int main(int argc, char * argv[])

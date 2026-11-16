@@ -34,7 +34,7 @@ class ImageProcessorNode(Node):
         self.detector_parameters = cv2.aruco.DetectorParameters_create()
 
         # parameter to control whether to show the annotated image in a window
-        self.show_image = self.declare_parameter('show_image', True).value
+        self.show_image = self.declare_parameter('show_image', False).value
 
         self.sub = self.create_subscription(
             CompressedImage, '/camera/image/compressed', self.image_callback, 10)
@@ -47,7 +47,7 @@ class ImageProcessorNode(Node):
             cv2.namedWindow('marker_image', cv2.WINDOW_AUTOSIZE)
 
         self.get_logger().info(
-            'Listening on /camera/image/compressed; publishing annotated frames on marker_image'
+            'Listening on /camera/image/compressed;'
         )
 
     @staticmethod
@@ -107,6 +107,7 @@ class ImageProcessorNode(Node):
                     self.marker_image_published = False
                     self.marker_id_to_be_seen = marker.id
 
+                '''
                 #if marker.side >= MIN_MARKER_SIDE_PX and not self.marker_image_published:
                 if marker.side >= MIN_MARKER_SIDE_PX and not self.marker_image_published:
                     output_image = cv_image.copy()  # annotated copy (circle + id)
@@ -129,6 +130,7 @@ class ImageProcessorNode(Node):
                         # display the annotated image in a window
                         cv2.imshow('marker_image', output_image)
                         
+                '''
 
         # published on every frame, also when empty
         self.pub_marker.publish(observations)
