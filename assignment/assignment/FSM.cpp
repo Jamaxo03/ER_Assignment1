@@ -1,7 +1,7 @@
 #include <memory>
 #include <chrono>
 #include <cmath>
-#include <set>
+// #include <set>
 
 #include "rclcpp/rclcpp.hpp"
 #include "assignment_interfaces/msg/marker_array.hpp"
@@ -19,7 +19,7 @@ public:
 private:
 
 // variables to save msg /MarkerArray
-    int current_id_;
+    int target_id_;
     double current_u_;
     double current_v_;
     double current_side_;
@@ -31,16 +31,12 @@ private:
     // becomes true at the first /odom message: the simulation is running
     bool odom_received_ = false;
 
-// set to save already executed markers
-std::set<int> executed_markers_;
-
 // state variable 
     enum State
     {
         START,
         MOVE,
-        ALIGN,
-        APPROACH,
+        ALIGN_AND_APPROACH,
         TAKE_PHOTO,
         EXECUTE,
         ROTATE,
@@ -74,6 +70,9 @@ std::set<int> executed_markers_;
 // rotate function
     void rotate(double speed);
 
+// general twist function
+    void twist(double v, double omega);
+
 // stop robot function
     void stopRobot();
 
@@ -100,7 +99,7 @@ std::set<int> executed_markers_;
 // Marker subscriber constructor
 MarkerSubscriber::MarkerSubscriber()
 : Node("marker_subscriber"), 
-    current_id_(0),
+    target_id_(1),
     current_u_(0.0),
     current_v_(0.0),
     current_side_(0.0),
@@ -124,7 +123,7 @@ MarkerSubscriber::MarkerSubscriber()
         odom_subscription_ =
             this->create_subscription<
                 nav_msgs::msg::Odometry>(
-                    "/odom",
+                    "/odometry/filtered",
                     10,
                     std::bind(
                         &MarkerSubscriber::odomCallback,
@@ -150,24 +149,17 @@ void MarkerSubscriber::markerCallback(
 {
     marker_visible_ = false;
 
-    double best_side = -1.0;
-
     for(const auto& marker : msg->markers)
     {
-        //bool already_executed =
-        //    executed_markers_.count(marker.id);
 
-        if(executed_markers_.find(marker.id) == executed_markers_.end() &&
-        marker.side > best_side)
+        if(marker.id == target_id_)
         {
-            best_side = marker.side;
-
-            current_id_ = marker.id;
             current_u_ = marker.u;
             current_v_ = marker.v;
             current_side_ = marker.side;
 
             marker_visible_ = true;
+            break;
         }
     }
 }
@@ -219,15 +211,14 @@ void MarkerSubscriber::fsm(){
 
                 RCLCPP_INFO(
                 this->get_logger(),
-                "MOVE state, current_id: %d.", current_id_);
+                "MOVE state, target_id: %d.", target_id_);
 
             // muovo il robot avanti dopo aver eseguito un istruzione (o in partenza)
             // robot fermo
             // deve ripartire (comando ripartire) 
             if(marker_visible_)
             {
-                stopRobot();
-                current_state_ = ALIGN;
+                current_state_ = ALIGN_AND_APPROACH;
             }
             else
             {
@@ -236,66 +227,45 @@ void MarkerSubscriber::fsm(){
 
         break;
 
-        case ALIGN:
+        case ALIGN_AND_APPROACH:
         {
 
             RCLCPP_INFO(
                 this->get_logger(),
-                "ALIGN state, current_id: %d.", current_id_);
+                "ALIGN_AND_APPROACH state, target_id: %d.", target_id_);
 
-            // formula allineamento con il centro del marker    
-
-            const double cx = 320.0;
-            const double tolerance = 20.0;
-
-            double error = current_u_ - cx;
-
-            if(std::abs(error) < tolerance)
+            // marker lost
+            if(!marker_visible_)
             {
-                stopRobot();
-                current_state_ = APPROACH;
-            }
-            else
-            {
-                double omega = -0.002 * error;
-                rotate(omega);
+                current_state_ = MOVE;
+                break;
             }
 
+            const double cx = 320.0;          
+            const double u_tolerance = 20.0;  
+            double desired_side = 166.0;      
+            double side_tolerance = 5.0;
 
-        break;
-        }
-        
-        case APPROACH:
-        {
-
-            RCLCPP_INFO(
-                this->get_logger(),
-                "APPROACH state, current_id: %d.", current_id_);
-
-            // 166 px distanza per eseguire istruzione
-
-            double desired_side = 166.0;
-            double tolerance = 5.0;
-
-            if(current_id_ == 4)
+            if(target_id_ == 4)
             {
                 // diminuita distanza in px per garantire ultimo marker venga visto
                 desired_side = 168.0;
-                tolerance = 0.5;
+                side_tolerance = 0.5;
             }
 
-            double error = desired_side - current_side_;
+            double u_error = current_u_ - cx;
+            double side_error = desired_side - current_side_;
 
-            if(std::abs(error) < tolerance)
+             if(std::abs(u_error) < u_tolerance && std::abs(side_error) < side_tolerance)
             {
                 stopRobot();
-                //current_state_ = EXECUTE;
                 current_state_ = TAKE_PHOTO;
             }
             else
             {
-                double v = 0.005 * error;
-                moveForward(v);
+                double omega = -0.002 * u_error;
+                double v = 0.005 * side_error;
+                twist(v, omega);
             }
 
         break;
@@ -317,16 +287,12 @@ void MarkerSubscriber::fsm(){
 
             RCLCPP_INFO(
                 this->get_logger(),
-                "EXECUTE state, current_id: %d.", current_id_);
+                "EXECUTE state, target_id: %d.", target_id_);
 
-            // id recognition(switch)
 
             service_response_received_ = false;
 
-            // update already used markers
-            executed_markers_.insert(current_id_);
-
-            switch(current_id_)
+            switch(target_id_)
             {
                 case 1:
                     // id 1 =  90° right
@@ -370,6 +336,9 @@ void MarkerSubscriber::fsm(){
                     current_state_ = MOVE;
                 break;
             }
+
+            // increment target_id_ to move to the next marker
+            target_id_++;  
                         
         break;
 
@@ -378,7 +347,7 @@ void MarkerSubscriber::fsm(){
 
             RCLCPP_INFO(
                 this->get_logger(),
-                "ROTATE state, current_id: %d.", current_id_);
+                "ROTATE state, target_id: %d.", target_id_);
 
             // state to handle rotations
             static bool initialized = false;
@@ -447,6 +416,15 @@ void MarkerSubscriber::rotate(double speed)
 {
     geometry_msgs::msg::Twist cmd;
     cmd.angular.z = speed;
+    cmd_vel_pub_->publish(cmd);
+}
+
+// function general twist definition
+void MarkerSubscriber::twist(double v, double omega)
+{
+    geometry_msgs::msg::Twist cmd;
+    cmd.linear.x = v;
+    cmd.angular.z = omega;
     cmd_vel_pub_->publish(cmd);
 }
 

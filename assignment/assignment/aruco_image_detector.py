@@ -7,9 +7,7 @@ import rclpy
 from cv_bridge import CvBridge, CvBridgeError
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
-#from std_msgs.msg import Int32
 from assignment_interfaces.msg import Marker, MarkerArray
-#from rclpy.qos import qos_profile_sensor_data
 
 
 MIN_MARKER_SIDE_PX = 166.0
@@ -110,31 +108,7 @@ class ImageProcessorNode(Node):
                     # turning in front of the second one, thus not being able to spot it afterwards
                     self.marker_image_published = False
                     self.marker_id_to_be_seen = marker.id
-
-                '''
-                #if marker.side >= MIN_MARKER_SIDE_PX and not self.marker_image_published:
-                if marker.side >= MIN_MARKER_SIDE_PX and not self.marker_image_published:
-                    output_image = cv_image.copy()  # annotated copy (circle + id)
-
-                    # drawing
-                    center = (int(x), int(y))
-                    cv2.circle(output_image, center, int(radius), (0, 255, 0), 3)
-                    label_position = (center[0] - 30, max(center[1] - int(radius) - 10, 30))
-                    cv2.putText(output_image, f'id {marker.id}', label_position, cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
-
-                    # converting the annotated OpenCV image back to ROS Image message and publishing it on the topic
-                    output_msg = self.bridge.cv2_to_imgmsg(output_image, encoding='bgr8') 
-                    output_msg.header = msg.header
-                    self.pub.publish(output_msg)
-
-                    self.marker_image_published = True
-                    self.get_logger().info(f'Marker {marker.id} reached (side {marker.side:.0f} px): /marker_image published')
-
-                    if self.show_image:
-                        # display the annotated image in a window
-                        cv2.imshow('marker_image', output_image)
-                        
-                '''
+                    
 
         # published on every frame, also when empty
         self.pub_marker.publish(observations)
