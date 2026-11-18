@@ -48,7 +48,7 @@ flowchart LR
 
 ## 1. One-time setup: Gazebo models
 
-The simulation world needs the instructor's `aruco_box_1..4` models in `~/gazebo_models`. Copy them there once, then make the folder visible to Gazebo:
+The simulation world needs the `aruco_box_1..4` models in `~/gazebo_models` from the repository inside [CarmineD8/erl1](https://github.com/CarmineD8/erl1). Copy them once, then make the folder visible to Gazebo:
 
 ```bash
 echo 'export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:$HOME/gazebo_models' >> ~/.bashrc
@@ -56,6 +56,8 @@ source ~/.bashrc
 ```
 
 ## 2. Build and run (simulation)
+
+### Scripted build and run
 
 The repository folder is also the colcon workspace. From that folder in WSL/Ubuntu, run:
 
