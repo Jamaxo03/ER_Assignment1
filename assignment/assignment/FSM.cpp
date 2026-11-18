@@ -1,13 +1,15 @@
 #include <memory>
 #include <chrono>
 #include <cmath>
-// #include <set>
+#include <string>
 
 #include "rclcpp/rclcpp.hpp"
 #include "assignment_interfaces/msg/marker_array.hpp"
 #include "assignment_interfaces/srv/take_photo.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
+
 
 using TakePhoto = assignment_interfaces::srv::TakePhoto;
 
@@ -30,6 +32,22 @@ private:
 
     // becomes true at the first /odom message: the simulation is running
     bool odom_received_ = false;
+
+    // camera intrinsics from camera_info (fx = K[0], cx = K[2])
+    double fx_ = 0.0;
+    double cx_ = 0.0;
+    bool camera_info_received_ = false;
+
+    // ROS parameters (see config/sim.yaml and config/rosbot.yaml)
+    double reference_side_;
+    double reference_fx_;
+    double forward_speed_;
+    double k_omega_;
+    double k_v_;
+    double u_tolerance_;
+    double side_tolerance_;
+    double k_rot_;
+    double yaw_tolerance_;
 
 // state variable 
     enum State
@@ -59,6 +77,9 @@ private:
 // odomCallback declaration
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
+// cameraInfoCallback declaration
+    void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
+
 // fsm declaration
     void fsm();
 
@@ -85,6 +106,9 @@ private:
 // odom subscriber
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscription_;
 
+// camera_info subscriber
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_subscription_;
+
 // timer subscriber
     rclcpp::TimerBase::SharedPtr timer_;
 
@@ -110,10 +134,32 @@ MarkerSubscriber::MarkerSubscriber()
     robot_y_(0.0),
     robot_yaw_(0.0)
     {
+
+        // ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
+        const std::string marker_array_topic =
+            this->declare_parameter<std::string>("marker_array_topic", "/marker_array");
+        const std::string odom_topic =
+            this->declare_parameter<std::string>("odom_topic", "/odometry/filtered");
+        const std::string cmd_vel_topic =
+            this->declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
+        const std::string camera_info_topic =
+            this->declare_parameter<std::string>("camera_info_topic", "/camera/camera_info");
+
+        reference_side_ = this->declare_parameter<double>("reference_side", 166.0);
+        reference_fx_   = this->declare_parameter<double>("reference_fx", 381.36);
+        forward_speed_  = this->declare_parameter<double>("forward_speed", 0.2);
+        k_omega_        = this->declare_parameter<double>("k_omega", 0.002);
+        k_v_            = this->declare_parameter<double>("k_v", 0.005);
+        u_tolerance_    = this->declare_parameter<double>("u_tolerance", 20.0);
+        side_tolerance_ = this->declare_parameter<double>("side_tolerance", 5.0);
+        k_rot_          = this->declare_parameter<double>("k_rot", 0.8);
+        yaw_tolerance_  = this->declare_parameter<double>("yaw_tolerance", 0.05);
+
+
         marker_array_subscription_ =
             this->create_subscription<
                 assignment_interfaces::msg::MarkerArray>(
-                    "/marker_array",
+                    marker_array_topic,
                     10,
                     std::bind(
                         &MarkerSubscriber::markerCallback,
@@ -123,10 +169,20 @@ MarkerSubscriber::MarkerSubscriber()
         odom_subscription_ =
             this->create_subscription<
                 nav_msgs::msg::Odometry>(
-                    "/odometry/filtered",
-                    10,
+                    odom_topic,
+                    rclcpp::SensorDataQoS(),
                     std::bind(
                         &MarkerSubscriber::odomCallback,
+                        this,
+                        std::placeholders::_1));
+
+        camera_info_subscription_ =
+            this->create_subscription<
+                sensor_msgs::msg::CameraInfo>(
+                    camera_info_topic,
+                    rclcpp::SensorDataQoS(),
+                    std::bind(
+                        &MarkerSubscriber::cameraInfoCallback,
                         this,
                         std::placeholders::_1));
 
@@ -137,7 +193,7 @@ MarkerSubscriber::MarkerSubscriber()
 
         cmd_vel_pub_ =
             this->create_publisher<geometry_msgs::msg::Twist>(
-                "/cmd_vel",
+                cmd_vel_topic,
                 10);
 
         take_photo_client_ = this->create_client<TakePhoto>("take_photo");
@@ -186,6 +242,15 @@ void MarkerSubscriber::odomCallback(
 
     }
 
+// cameraInfoCallback definition: intrinsics of the camera actually in use
+void MarkerSubscriber::cameraInfoCallback(
+    const sensor_msgs::msg::CameraInfo::SharedPtr msg)
+{
+    fx_ = msg->k[0];
+    cx_ = msg->k[2];
+    camera_info_received_ = true;
+}
+
 // fsm definition
 void MarkerSubscriber::fsm(){
 
@@ -195,7 +260,8 @@ void MarkerSubscriber::fsm(){
 
             // wait until Gazebo is running and the robot publishes odometry,
             // otherwise the first commands are lost and the yaw is not valid
-            if(!odom_received_)
+            // wait also for camera_info to be received
+            if(!odom_received_ || !camera_info_received_)
             {
                 break;
             }
@@ -222,7 +288,7 @@ void MarkerSubscriber::fsm(){
             }
             else
             {
-                moveForward(0.2);
+                moveForward(forward_speed_);
             }
 
         break;
@@ -241,30 +307,31 @@ void MarkerSubscriber::fsm(){
                 break;
             }
 
-            const double cx = 320.0;          
-            const double u_tolerance = 20.0;  
-            double desired_side = 166.0;      
-            double side_tolerance = 5.0;
+            // desired side scaled with the focal length: sd = sd_ref * fx / fx_ref
+            // (in simulation fx == reference_fx, so sd = 166 px as before)
+            const double scale = fx_ / reference_fx_;
+            double desired_side = reference_side_ * scale;
+            double side_tolerance = side_tolerance_;
 
             if(target_id_ == 4)
             {
                 // diminuita distanza in px per garantire ultimo marker venga visto
-                desired_side = 168.0;
+                desired_side = 168.0 * scale;
                 side_tolerance = 0.5;
             }
 
-            double u_error = current_u_ - cx;
+            double u_error = current_u_ - cx_;
             double side_error = desired_side - current_side_;
 
-             if(std::abs(u_error) < u_tolerance && std::abs(side_error) < side_tolerance)
+             if(std::abs(u_error) < u_tolerance_ && std::abs(side_error) < side_tolerance)
             {
                 stopRobot();
                 current_state_ = TAKE_PHOTO;
             }
             else
             {
-                double omega = -0.002 * u_error;
-                double v = 0.005 * side_error;
+                double omega = -k_omega_ * u_error;
+                double v = k_v_ * side_error;
                 twist(v, omega);
             }
 
@@ -368,7 +435,7 @@ void MarkerSubscriber::fsm(){
                     std::cos(target_yaw - robot_yaw_)
                 );
 
-            if(std::abs(error) < 0.05)
+            if(std::abs(error) < yaw_tolerance_)
             {
                 stopRobot();
 
@@ -377,7 +444,7 @@ void MarkerSubscriber::fsm(){
             }
             else
             {
-                rotate(0.8 * error);
+                rotate(k_rot_ * error);
             }
 
         break;

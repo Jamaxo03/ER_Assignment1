@@ -23,13 +23,20 @@ public:
   : Node("take_photo_service_node"),
     show_image_(declare_parameter<bool>("show_image", true))
   {
+    
+    // ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
+    const std::string image_topic =
+      declare_parameter<std::string>("image_topic", "/camera/image");
+    const std::string marker_image_topic =
+      declare_parameter<std::string>("marker_image_topic", "/marker_image");
+
     service_ = create_service<TakePhoto>(
       "take_photo",
       std::bind(
         &TakePhotoServiceNode::handle_service, this,
         std::placeholders::_1, std::placeholders::_2));
 
-    marker_image_pub_ = create_publisher<sensor_msgs::msg::Image>("/marker_image", 10);
+    marker_image_pub_ = create_publisher<sensor_msgs::msg::Image>(marker_image_topic, 10);
 
     dictionary_ =
       cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
@@ -39,16 +46,19 @@ public:
       cv::namedWindow("ArUco detection", cv::WINDOW_AUTOSIZE);
     }
 
+    // image_topic is the base topic: the 'compressed' plugin subscribes to <base>/compressed.
+    // sensor_data QoS (best effort) matches both the Gazebo bridge and the ROSbot camera
     image_subscriber_ = image_transport::create_subscription(
-      this, "/camera/image",
+      this, image_topic,
       std::bind(
         &TakePhotoServiceNode::image_callback, this, std::placeholders::_1),
-      "compressed");
+      "compressed",
+      rmw_qos_profile_sensor_data);
 
     RCLCPP_INFO(
       get_logger(),
-      "Take-Photo service ready; show_image=%s",
-      show_image_ ? "true" : "false");
+      "Take-Photo service ready: listening on %s (compressed), publishing on %s, show_image=%s",
+      image_topic.c_str(), marker_image_topic.c_str(), show_image_ ? "true" : "false");
   }
 
   ~TakePhotoServiceNode() override

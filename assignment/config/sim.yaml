@@ -1,3 +1,30 @@
-aruco_detector:         
+aruco_detector:
   ros__parameters:
+    image_topic: /camera/image
+    marker_array_topic: /marker_array
+
+take_photo_service:
+  ros__parameters:
+    image_topic: /camera/image
+    marker_image_topic: /marker_image
     show_image: true
+
+fsm_node:
+  ros__parameters:
+    marker_array_topic: /marker_array
+    odom_topic: /odometry/filtered
+    cmd_vel_topic: /cmd_vel
+    camera_info_topic: /camera/camera_info
+
+    # IBVS target: 166 px measured with the simulated camera (fx = 381.36)
+    reference_side: 166.0
+    reference_fx: 381.36
+
+    # gains and tolerances
+    forward_speed: 0.2        # m/s, while searching for the marker
+    k_omega: 0.002            # omega = -k_omega * (u - cx)
+    k_v: 0.005                # v = k_v * (sd - s)
+    u_tolerance: 20.0         # px
+    side_tolerance: 5.0       # px
+    k_rot: 0.8                # rotation gain on the yaw error
+    yaw_tolerance: 0.05       # rad

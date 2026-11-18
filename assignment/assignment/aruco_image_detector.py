@@ -6,12 +6,10 @@ import cv2
 import rclpy
 from cv_bridge import CvBridge, CvBridgeError
 from rclpy.node import Node
-from sensor_msgs.msg import CompressedImage, Image
+from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import CompressedImage
 from assignment_interfaces.msg import Marker, MarkerArray
 
-
-MIN_MARKER_SIDE_PX = 166.0
-MAX_MARKER_SIDE_PX = 100.0
 
 class ImageProcessorNode(Node):
     def __init__(self):
@@ -19,18 +17,12 @@ class ImageProcessorNode(Node):
 
         self.bridge = CvBridge() 
 
-        # becomes True after /marker_image has been published once
-        self.marker_image_published = False
-        self.marker_id_to_be_seen = 1
-
         # dictionary for detecting ArUco markers correctly
         self.dictionary = cv2.aruco.getPredefinedDictionary(
             cv2.aruco.DICT_ARUCO_ORIGINAL
         )
 
         # detector with default parameters, to obtain marker corners and ids.
-        # OpenCV >= 4.7 (e.g. pip opencv-python) uses the ArucoDetector class,
-        # OpenCV 4.6 (Ubuntu python3-opencv) only has the legacy functions
         if hasattr(cv2.aruco, 'ArucoDetector'):
             detector = cv2.aruco.ArucoDetector(self.dictionary, cv2.aruco.DetectorParameters())
             self.detect_markers = detector.detectMarkers
@@ -39,22 +31,19 @@ class ImageProcessorNode(Node):
             self.detect_markers = lambda image: cv2.aruco.detectMarkers(
                 image, self.dictionary, parameters=parameters)
 
-        # parameter to control whether to show the annotated image in a window
-        self.show_image = self.declare_parameter('show_image', False).value
+        # ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
+        image_topic = self.declare_parameter('image_topic', '/camera/image').value
+        marker_array_topic = self.declare_parameter('marker_array_topic', '/marker_array').value
+        compressed_topic = image_topic + '/compressed'
 
+        # reliable (Gazebo bridge) or best effort (ROSbot), this subscriber matches both
         self.sub = self.create_subscription(
-            CompressedImage, '/camera/image/compressed', self.image_callback, 10)
-        
-        self.pub = self.create_publisher(Image, '/marker_image', 10)
-        self.pub_marker = self.create_publisher(MarkerArray, '/marker_array', 10)
+            CompressedImage, compressed_topic, self.image_callback, qos_profile_sensor_data)
 
-        if self.show_image:
-            # define name of window where topic frames will be displayed
-            cv2.namedWindow('marker_image', cv2.WINDOW_AUTOSIZE)
+        self.pub_marker = self.create_publisher(MarkerArray, marker_array_topic, 10)
 
         self.get_logger().info(
-            'Listening on /camera/image/compressed;'
-        )
+            f'Listening on {compressed_topic}, publishing on {marker_array_topic}')
 
     @staticmethod
     def _marker_side_length(corners):
@@ -102,25 +91,9 @@ class ImageProcessorNode(Node):
                 marker.side = float(self._marker_side_length(corners))
 
                 observations.markers.append(marker)
-
-                if marker.id > self.marker_id_to_be_seen and marker.side >= MAX_MARKER_SIDE_PX:
-                    # necessary to check also MAX_MARKER_SIDE_PX, since the foruth marker gets spotted right after 
-                    # turning in front of the second one, thus not being able to spot it afterwards
-                    self.marker_image_published = False
-                    self.marker_id_to_be_seen = marker.id
                     
-
         # published on every frame, also when empty
         self.pub_marker.publish(observations)
-
-        if self.show_image:
-            cv2.waitKey(1)
-
-    def destroy_node(self):
-        if self.show_image:
-            cv2.destroyWindow('marker_image')
-        super().destroy_node()
-
 
 def main(args=None):
     rclpy.init(args=args)

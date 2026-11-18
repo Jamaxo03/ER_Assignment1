@@ -10,6 +10,7 @@ find_package(rclcpp REQUIRED)
 find_package(assignment_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 add_executable(fsm_node assignment/FSM.cpp)
 ament_target_dependencies(fsm_node
@@ -17,6 +18,7 @@ ament_target_dependencies(fsm_node
   assignment_interfaces
   geometry_msgs
   nav_msgs
+  sensor_msgs
 )
 
 install(TARGETS
