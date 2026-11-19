@@ -1,0 +1,31 @@
+aruco_detector:
+  ros__parameters:
+    image_topic: /camera/rgb/image_raw      
+    marker_array_topic: /marker_array
+
+take_photo_service:
+  ros__parameters:
+    image_topic: /camera/rgb/image_raw     
+    marker_image_topic: /marker_image
+    show_image: true
+
+fsm_node:
+  ros__parameters:
+    marker_array_topic: /marker_array
+    odom_topic: /odometry/filtered
+    cmd_vel_topic: /cmd_vel
+    camera_info_topic: /camera/rgb/camera_info
+
+    # same reference as in simulation: the node rescales it with the real fx
+    # (desired_side = reference_side * fx / reference_fx)
+    reference_side: 166.0
+    reference_fx: 381.36
+
+    # gains and tolerances (slower on the real robot)
+    forward_speed: 0.1        # m/s
+    k_omega: 0.002
+    k_v: 0.005
+    u_tolerance: 20.0         # px
+    side_tolerance: 5.0       # px
+    k_rot: 0.8
+    yaw_tolerance: 0.05       # rad
