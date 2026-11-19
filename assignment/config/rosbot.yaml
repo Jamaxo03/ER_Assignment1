@@ -1,20 +1,23 @@
+# Parameters for the real ROSbot (rosbot_1).
+# All the robot topics live under the /rosbot_1 namespace: for rosbot_2 / rosbot_3
+
 aruco_detector:
   ros__parameters:
-    image_topic: /camera/rgb/image_raw/compressed    # compressed (JPEG) stream
+    image_topic: /rosbot_1/camera/rgb/image_raw/compressed
     marker_array_topic: /marker_array
 
 take_photo_service:
   ros__parameters:
-    image_topic: /camera/rgb/image_raw/compressed    # compressed (JPEG) stream
-    marker_image_topic: /marker_image
+    image_topic: /rosbot_1/camera/rgb/image_raw/compressed
+    marker_image_topic: /marker_image     
     show_image: true
 
 fsm_node:
   ros__parameters:
     marker_array_topic: /marker_array
-    odom_topic: /odometry/filtered
-    cmd_vel_topic: /cmd_vel
-    camera_info_topic: /camera/rgb/camera_info
+    odom_topic: /rosbot_1/odometry/filtered
+    cmd_vel_topic: /rosbot_1/cmd_vel
+    camera_info_topic: /rosbot_1/camera/rgb/camera_info
 
     # same reference as in simulation: the node rescales it with the real fx
     # (desired_side = reference_side * fx / reference_fx)

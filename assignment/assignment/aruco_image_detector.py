@@ -32,8 +32,8 @@ class ImageProcessorNode(Node):
                 image, self.dictionary, parameters=parameters)
 
         # ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
-        # image_topic is the full name of the COMPRESSED (JPEG) stream: the raw image is never
-        # transferred, which keeps the bandwidth low over Wi-Fi with the real ROSbot
+        # image_topic = full name of the COMPRESSED (JPEG) camera topic, e.g. /camera/image/compressed:
+        # only compressed images travel on the network (as in modifier_compr.py of my_opencv_py)
         image_topic = self.declare_parameter('image_topic', '/camera/image/compressed').value
         marker_array_topic = self.declare_parameter('marker_array_topic', '/marker_array').value
 

@@ -11,7 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(cv_bridge REQUIRED)
-find_package(sensor_msgs REQUIRED)
+find_package(image_transport REQUIRED)
 find_package(OpenCV REQUIRED COMPONENTS aruco core highgui imgproc)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -25,6 +25,7 @@ add_executable(take_photo_service src/take_photo_service.cpp)
 target_include_directories(take_photo_service PRIVATE ${OpenCV_INCLUDE_DIRS})
 ament_target_dependencies(take_photo_service
   cv_bridge
+  image_transport
   rclcpp
   sensor_msgs
   std_msgs

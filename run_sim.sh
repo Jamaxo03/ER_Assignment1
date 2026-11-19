@@ -62,15 +62,6 @@ trap cleanup EXIT
 # ROS 2 Jazzy environment
 source /opt/ros/jazzy/setup.bash
 
-# DDS middleware: Cyclone DDS (the launch files set it too, this covers the
-# ros2 CLI). A ros2 daemon started earlier with another middleware would not
-# see our topics, so it is restarted when the middleware is changing.
-if [ "$RMW_IMPLEMENTATION" != "rmw_cyclonedds_cpp" ]; then
-    export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-    ros2 daemon stop > /dev/null 2>&1 || true
-fi
-echo "[run_sim] DDS middleware: $RMW_IMPLEMENTATION"
-
 # let Gazebo find the instructor's aruco_box_1..4 models in ~/gazebo_models
 # (~/.bashrc is not read by scripts; harmless when Gazebo is not started)
 export GZ_SIM_RESOURCE_PATH="$GZ_SIM_RESOURCE_PATH:$HOME/gazebo_models"

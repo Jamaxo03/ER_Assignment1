@@ -7,12 +7,14 @@
 
 #include "assignment_interfaces/srv/take_photo.hpp"
 #include "cv_bridge/cv_bridge.hpp"
+#include "image_transport/image_transport.hpp"
 #include "opencv2/aruco.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/compressed_image.hpp"
 #include "sensor_msgs/msg/image.hpp"
+#include "std_msgs/msg/header.hpp"
 
 using TakePhoto = assignment_interfaces::srv::TakePhoto;
 
@@ -24,8 +26,8 @@ public:
     show_image_(declare_parameter<bool>("show_image", true))
   {
     
-    // ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
-    // image_topic is the full name of the COMPRESSED (JPEG) camera stream
+    // ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml.
+    // image_topic = full name of the COMPRESSED (JPEG) camera topic, e.g. /camera/image/compressed
     const std::string image_topic =
       declare_parameter<std::string>("image_topic", "/camera/image/compressed");
     const std::string marker_image_topic =
@@ -37,7 +39,9 @@ public:
         &TakePhotoServiceNode::handle_service, this,
         std::placeholders::_1, std::placeholders::_2));
 
-    marker_image_pub_ = create_publisher<sensor_msgs::msg::Image>(marker_image_topic, 10);
+    // image_transport publisher (as in it_modifier of my_opencv): besides the raw
+    // /marker_image it also advertises /marker_image/compressed (and the other installed transports)
+    marker_image_pub_ = image_transport::create_publisher(this, marker_image_topic);
 
     dictionary_ =
       cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
@@ -122,9 +126,9 @@ private:
             font_scale, cv::Scalar(0, 255, 0), text_thickness, cv::LINE_AA);
     }
 
-    // retransform cv matrix in ros message (image) and publish it on image_with_circle topic
+    // retransform cv matrix in ros message (image) and publish it on marker_image_topic
     auto out_msg = cv_bridge::CvImage(header_, "bgr8", marker_image_).toImageMsg();
-    marker_image_pub_->publish(*out_msg);
+    marker_image_pub_.publish(*out_msg);
 
     if (show_image_) {
         cv::imshow("ArUco detection", marker_image_);
@@ -136,7 +140,7 @@ private:
 
   void image_callback(const sensor_msgs::msg::CompressedImage::ConstSharedPtr msg)
   {
-    // keep only the header: it is reused for the annotated /marker_image
+    // keep the header: it is reused for the annotated /marker_image
     header_ = msg->header;
     try {
       // decode the JPEG payload into a BGR OpenCV matrix
@@ -150,7 +154,7 @@ private:
 
   bool show_image_;
   rclcpp::Service<TakePhoto>::SharedPtr service_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr marker_image_pub_;
+  image_transport::Publisher marker_image_pub_;
   rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr image_subscriber_;
   cv::Mat marker_image_;
   std_msgs::msg::Header header_;
