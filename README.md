@@ -77,6 +77,8 @@ Options:
 |---------|--------|
 | `./run_sim.sh --clean` | Deletes `build/`, `install/` and `log/` before building (use it if the build fails because of old files) |
 | `./run_sim.sh rviz:=false` | Launches without RViz (any `<arg>:=<value>` is passed to `ros2 launch`) |
+| `./run_sim.sh rosbot` | Builds and launches `rosbot.launch.py` (detector, FSM, photo service for the real ROSbot, no Gazebo/RViz). Without this flag the Gazebo simulation (`sim.launch.py`) is launched |
+| `./run_sim.sh --clean rosbot` | Flags can be combined, in any order |
 
 To stop everything, press **Ctrl+C** or close the Gazebo window. The script then shuts down every node.
 

@@ -1,19 +1,44 @@
 #!/bin/bash
-# Build the workspace and launch the simulation with a single command.
+# Build the workspace and launch the project with a single command.
 # Usage (from WSL):
-#   ./run_sim.sh             build + launch
-#   ./run_sim.sh --clean     delete build/ install/ log/ first, then build + launch
-#   ./run_sim.sh rviz:=false any other argument is forwarded to ros2 launch
+#   ./run_sim.sh               build + launch the Gazebo simulation (sim.launch.py, default)
+#   ./run_sim.sh rosbot        build + launch the nodes for the real ROSbot (rosbot.launch.py)
+#   ./run_sim.sh --clean       delete build/ install/ log/ first, then build + launch
+#   ./run_sim.sh rviz:=false   any other argument is forwarded to ros2 launch
+# Flags can be combined, in any order: ./run_sim.sh --clean rosbot
 
 set -e  # stop at the first failing command (e.g. a compilation error)
 
 # move to the folder containing this script (the repository root = workspace root)
 cd "$(dirname "$(readlink -f "$0")")"
 
-# optional clean build, useful when old build artifacts break colcon
-if [ "$1" == "--clean" ]; then
+# ---------------------------------------------------------------------------
+# Parse the script flags. Everything that is not a script flag is kept in
+# launch_args and forwarded to ros2 launch.
+#   --clean            : clean build (useful when old build artifacts break colcon)
+#   rosbot / --rosbot  : physical ROSbot instead of the Gazebo simulation
+# ---------------------------------------------------------------------------
+mode="sim"      # default target: Gazebo simulation
+clean=false
+launch_args=()
+for arg in "$@"; do
+    case "$arg" in
+        --clean)         clean=true ;;
+        rosbot|--rosbot) mode="rosbot" ;;
+        *)               launch_args+=("$arg") ;;
+    esac
+done
+
+# launch file chosen according to the target
+if [ "$mode" == "rosbot" ]; then
+    launch_file="rosbot.launch.py"   # detector + FSM + photo service, no Gazebo
+else
+    launch_file="sim.launch.py"      # Gazebo + RViz + detector + FSM + photo service
+fi
+echo "[run_sim] target: $mode ($launch_file)"
+
+if [ "$clean" == true ]; then
     rm -rf build install log
-    shift  # remove --clean from the arguments forwarded to ros2 launch
 fi
 
 # kill every process left over by a previous simulation.
@@ -38,7 +63,7 @@ trap cleanup EXIT
 source /opt/ros/jazzy/setup.bash
 
 # let Gazebo find the instructor's aruco_box_1..4 models in ~/gazebo_models
-# (~/.bashrc is not read by scripts)
+# (~/.bashrc is not read by scripts; harmless when Gazebo is not started)
 export GZ_SIM_RESOURCE_PATH="$GZ_SIM_RESOURCE_PATH:$HOME/gazebo_models"
 
 # sim.launch.py starts take_photo_service with prefix='xterm -e'.
@@ -46,7 +71,8 @@ export GZ_SIM_RESOURCE_PATH="$GZ_SIM_RESOURCE_PATH:$HOME/gazebo_models"
 # the "take_photo" service never appears and the FSM waits for it forever
 # at the first marker. When xterm is missing we put a minimal "xterm"
 # wrapper on PATH that drops "-e" and runs the node in this terminal.
-if ! command -v xterm >/dev/null 2>&1; then
+# Only needed in simulation: rosbot.launch.py does not use xterm.
+if [ "$mode" == "sim" ] && ! command -v xterm >/dev/null 2>&1; then
     echo "[run_sim] xterm not found (install it with: sudo apt install xterm)."
     echo "[run_sim] take_photo_service will run in this terminal instead."
     shim_dir="$(mktemp -d)"
@@ -67,12 +93,12 @@ colcon build --symlink-install
 source install/setup.bash
 
 # ---------------------------------------------------------------------------
-# Start Gazebo + aruco_detector + FSM and stop EVERYTHING cleanly when:
+# Start the selected launch file and stop EVERYTHING cleanly when:
 #   - Ctrl+C is pressed (SIGINT)
 #   - Ctrl+Z is pressed (SIGTSTP: by default it only suspends the processes,
 #     leaving Gazebo and the nodes alive but frozen)
 #   - the terminal is closed (SIGHUP) or the script is killed (SIGTERM)
-#   - the Gazebo window is closed
+#   - the Gazebo window is closed (simulation only)
 # ---------------------------------------------------------------------------
 set +e  # from here on a non-zero exit status must not abort the monitor loop
 
@@ -80,7 +106,7 @@ set +e  # from here on a non-zero exit status must not abort the monitor loop
 # (Ctrl+C / Ctrl+Z) then reach only this script, which decides how to stop it.
 # stdin from /dev/null: a background group must never read the terminal.
 set -m
-ros2 launch assignment sim.launch.py "$@" < /dev/null &
+ros2 launch assignment "$launch_file" "${launch_args[@]}" < /dev/null &
 launch_pid=$!   # PID of ros2 launch = ID of its process group
 set +m
 
@@ -88,7 +114,7 @@ set +m
 stop_all() {
     trap '' INT TSTP TERM HUP  # ignore further keys while shutting down
     echo
-    echo "[run_sim] $1: stopping all simulation processes..."
+    echo "[run_sim] $1: stopping all $mode processes..."
     # stop the pause of the monitor loop (wait + 2>/dev/null hide "Killed")
     { kill -KILL "$sleep_pid"; wait "$sleep_pid"; } 2>/dev/null
     # 1) graceful: SIGINT to the whole launch group (ros2 launch + nodes),
@@ -112,10 +138,13 @@ trap 'stop_all "SIGHUP"'  HUP
 # monitor loop: runs while ros2 launch is alive
 gz_seen=false
 while kill -0 "$launch_pid" 2>/dev/null; do
-    if pgrep -f "gz sim" > /dev/null; then
-        gz_seen=true                         # Gazebo is up
-    elif [ "$gz_seen" == true ]; then
-        stop_all "Gazebo closed"             # Gazebo was up and is now gone
+    # Gazebo watchdog: only in simulation (no Gazebo with the real ROSbot)
+    if [ "$mode" == "sim" ]; then
+        if pgrep -f "gz sim" > /dev/null; then
+            gz_seen=true                     # Gazebo is up
+        elif [ "$gz_seen" == true ]; then
+            stop_all "Gazebo closed"         # Gazebo was up and is now gone
+        fi
     fi
     # interruptible 1 s pause: "wait" returns as soon as a key is trapped
     sleep 1 &
