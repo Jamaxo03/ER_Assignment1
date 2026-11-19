@@ -32,18 +32,19 @@ class ImageProcessorNode(Node):
                 image, self.dictionary, parameters=parameters)
 
         # ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
-        image_topic = self.declare_parameter('image_topic', '/camera/image').value
+        # image_topic is the full name of the COMPRESSED (JPEG) stream: the raw image is never
+        # transferred, which keeps the bandwidth low over Wi-Fi with the real ROSbot
+        image_topic = self.declare_parameter('image_topic', '/camera/image/compressed').value
         marker_array_topic = self.declare_parameter('marker_array_topic', '/marker_array').value
-        compressed_topic = image_topic + '/compressed'
 
         # reliable (Gazebo bridge) or best effort (ROSbot), this subscriber matches both
         self.sub = self.create_subscription(
-            CompressedImage, compressed_topic, self.image_callback, qos_profile_sensor_data)
+            CompressedImage, image_topic, self.image_callback, qos_profile_sensor_data)
 
         self.pub_marker = self.create_publisher(MarkerArray, marker_array_topic, 10)
 
         self.get_logger().info(
-            f'Listening on {compressed_topic}, publishing on {marker_array_topic}')
+            f'Listening on {image_topic}, publishing on {marker_array_topic}')
 
     @staticmethod
     def _marker_side_length(corners):
@@ -62,7 +63,7 @@ class ImageProcessorNode(Node):
 
     def image_callback(self, msg):
         try:
-            # converting image from ROS Image message to OpenCV image (matrix format)
+            # decode the JPEG CompressedImage message into an OpenCV image (BGR matrix)
             cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8') 
         except CvBridgeError as error:
             self.get_logger().error(f'Could not convert camera image: {error}')

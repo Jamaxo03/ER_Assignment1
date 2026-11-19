@@ -1,11 +1,11 @@
 aruco_detector:
   ros__parameters:
-    image_topic: /camera/image
+    image_topic: /camera/image/compressed    # compressed (JPEG) stream
     marker_array_topic: /marker_array
 
 take_photo_service:
   ros__parameters:
-    image_topic: /camera/image
+    image_topic: /camera/image/compressed    # compressed (JPEG) stream
     marker_image_topic: /marker_image
     show_image: true
 

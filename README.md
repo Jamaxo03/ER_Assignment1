@@ -14,6 +14,7 @@ ROS 2 project for the Experimental Robotics Laboratory course's first assignment
 - Ubuntu 24.04 (native or WSL 2)
 - ROS 2 Jazzy/Humble and Gazebo Harmonic (`ros-jazzy-ros-gz`)
 - `robot_localization`, `cv_bridge`, `python3-opencv`
+- Cyclone DDS middleware: `sudo apt install ros-jazzy-rmw-cyclonedds-cpp`
 - Optional: `xterm` (`sudo apt install xterm`) to open the photo service in its own window
 
 ## Packages
@@ -45,6 +46,20 @@ flowchart LR
 - `aruco_detector` finds the markers in every camera frame and publishes their id, center and side on `/marker_array`.
 - `fsm_node` reads the markers and the filtered odometry, drives the robot through `/cmd_vel` and calls the `take_photo` service when it reaches a marker.
 - `take_photo_service` draws a circle and the "id N" label on the current frame and publishes it once on `/marker_image`.
+
+Both camera consumers subscribe **only to the compressed (JPEG) stream** (`sensor_msgs/CompressedImage`); the raw image is never transferred. The full topic name is the `image_topic` parameter in `config/sim.yaml` (`/camera/image/compressed`) and `config/rosbot.yaml` (`/camera/rgb/image_raw/compressed`).
+
+## DDS middleware: Cyclone DDS
+
+All nodes use **Cyclone DDS** (`rmw_cyclonedds_cpp`). Both launch files set `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` for the processes they start, and `run_sim.sh` exports it as well. For the `ros2` commands typed in other terminals (`ros2 topic echo`, `rqt_image_view`, ...) add it once to `~/.bashrc`:
+
+```bash
+echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> ~/.bashrc
+source ~/.bashrc
+ros2 daemon stop    # restart the CLI daemon with the new middleware
+```
+
+With the real ROSbot, also export the robot's `ROS_DOMAIN_ID` (10, 11 or 12) and make sure the robot side uses Cyclone DDS too.
 
 ## 1. One-time setup: Gazebo models
 

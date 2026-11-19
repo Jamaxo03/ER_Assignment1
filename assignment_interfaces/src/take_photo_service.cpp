@@ -7,11 +7,11 @@
 
 #include "assignment_interfaces/srv/take_photo.hpp"
 #include "cv_bridge/cv_bridge.hpp"
-#include "image_transport/image_transport.hpp"
 #include "opencv2/aruco.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/compressed_image.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
 using TakePhoto = assignment_interfaces::srv::TakePhoto;
@@ -25,8 +25,9 @@ public:
   {
     
     // ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
+    // image_topic is the full name of the COMPRESSED (JPEG) camera stream
     const std::string image_topic =
-      declare_parameter<std::string>("image_topic", "/camera/image");
+      declare_parameter<std::string>("image_topic", "/camera/image/compressed");
     const std::string marker_image_topic =
       declare_parameter<std::string>("marker_image_topic", "/marker_image");
 
@@ -46,18 +47,16 @@ public:
       cv::namedWindow("ArUco detection", cv::WINDOW_AUTOSIZE);
     }
 
-    // image_topic is the base topic: the 'compressed' plugin subscribes to <base>/compressed.
+    // plain subscription to the CompressedImage topic (same as the Python detector).
     // sensor_data QoS (best effort) matches both the Gazebo bridge and the ROSbot camera
-    image_subscriber_ = image_transport::create_subscription(
-      this, image_topic,
+    image_subscriber_ = create_subscription<sensor_msgs::msg::CompressedImage>(
+      image_topic, rclcpp::SensorDataQoS(),
       std::bind(
-        &TakePhotoServiceNode::image_callback, this, std::placeholders::_1),
-      "compressed",
-      rmw_qos_profile_sensor_data);
+        &TakePhotoServiceNode::image_callback, this, std::placeholders::_1));
 
     RCLCPP_INFO(
       get_logger(),
-      "Take-Photo service ready: listening on %s (compressed), publishing on %s, show_image=%s",
+      "Take-Photo service ready: listening on %s, publishing on %s, show_image=%s",
       image_topic.c_str(), marker_image_topic.c_str(), show_image_ ? "true" : "false");
   }
 
@@ -124,7 +123,7 @@ private:
     }
 
     // retransform cv matrix in ros message (image) and publish it on image_with_circle topic
-    auto out_msg = cv_bridge::CvImage(msg_->header, "bgr8", marker_image_).toImageMsg();
+    auto out_msg = cv_bridge::CvImage(header_, "bgr8", marker_image_).toImageMsg();
     marker_image_pub_->publish(*out_msg);
 
     if (show_image_) {
@@ -135,10 +134,12 @@ private:
     response->success = true;
   }
 
-  void image_callback(const sensor_msgs::msg::Image::ConstSharedPtr & msg)
+  void image_callback(const sensor_msgs::msg::CompressedImage::ConstSharedPtr msg)
   {
-    msg_ = msg;
+    // keep only the header: it is reused for the annotated /marker_image
+    header_ = msg->header;
     try {
+      // decode the JPEG payload into a BGR OpenCV matrix
       marker_image_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
     } catch (const cv_bridge::Exception & error) {
       RCLCPP_ERROR(get_logger(), "Could not convert camera image: %s", error.what());
@@ -150,9 +151,9 @@ private:
   bool show_image_;
   rclcpp::Service<TakePhoto>::SharedPtr service_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr marker_image_pub_;
-  image_transport::Subscriber image_subscriber_;
+  rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr image_subscriber_;
   cv::Mat marker_image_;
-  sensor_msgs::msg::Image::ConstSharedPtr msg_;
+  std_msgs::msg::Header header_;
   cv::Ptr<cv::aruco::Dictionary> dictionary_;
   cv::Ptr<cv::aruco::DetectorParameters> detector_parameters_;
 };

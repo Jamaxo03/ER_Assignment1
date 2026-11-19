@@ -2,13 +2,17 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
     pkg_assignment = get_package_share_directory('assignment')
+
+    # DDS middleware: Cyclone DDS for every node started by this launch file.
+    # The ROSbot must be reachable with the same ROS_DOMAIN_ID (10, 11 or 12).
+    rmw = SetEnvironmentVariable('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp')
 
     config_arg = DeclareLaunchArgument(
         'config',
@@ -43,5 +47,5 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        config_arg, aruco_detector, fsm_node, take_photo_srv
+        rmw, config_arg, aruco_detector, fsm_node, take_photo_srv
     ])
