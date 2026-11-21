@@ -120,3 +120,20 @@ Expected behaviour: the robot drives towards marker 1, centres it and approaches
 ## Development history
 
 See commits.
+
+## Authors
+
+This project was developed as a collaborative group project for the Experimental Robotics Laboratory course in Robotics Engineering Master's Degree at the University of Genoa.
+<div align="center">
+
+  <a href="https://github.com/Greg-0-0"><img src="https://github.com/Greg-0-0.png" width="60px"/></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+   <a href="https://github.com/ErToto00"><img src="https://github.com/ErToto00.png" width="60px"/></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+   <a href="https://github.com/Jamaxo03"><img src="https://github.com/Jamaxo03.png" width="60px"/></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+   <a href="https://github.com/AriBardoni"><img src="https://github.com/AriBardoni.png" width="60px"/></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+   <a href="https://github.com/Chiara-magn"><img src="https://github.com/Chiara-magn.png" width="60px"/></a>
+</div>
+
