@@ -7,6 +7,7 @@
 
 #include "assignment_interfaces/srv/take_photo.hpp"
 #include "cv_bridge/cv_bridge.hpp"
+#include "image_transport/image_transport.hpp"
 #include "opencv2/aruco.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
@@ -37,7 +38,8 @@ public:
         &TakePhotoServiceNode::handle_service, this,
         std::placeholders::_1, std::placeholders::_2));
 
-    marker_image_pub_ = create_publisher<sensor_msgs::msg::Image>(marker_image_topic, 10);
+    // marker_image_pub_ = create_publisher<sensor_msgs::msg::Image>(marker_image_topic, 10);
+    marker_image_pub_ = image_transport::create_publisher(this, marker_image_topic);
 
     dictionary_ =
       cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
@@ -124,7 +126,8 @@ private:
 
     // retransform cv matrix in ros message (image) and publish it on image_with_circle topic
     auto out_msg = cv_bridge::CvImage(header_, "bgr8", marker_image_).toImageMsg();
-    marker_image_pub_->publish(*out_msg);
+    //marker_image_pub_->publish(*out_msg);
+    marker_image_pub_.publish(*out_msg);
 
     if (show_image_) {
         cv::imshow("ArUco detection", marker_image_);
@@ -150,7 +153,8 @@ private:
 
   bool show_image_;
   rclcpp::Service<TakePhoto>::SharedPtr service_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr marker_image_pub_;
+  //rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr marker_image_pub_;
+  image_transport::Publisher marker_image_pub_;
   rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr image_subscriber_;
   cv::Mat marker_image_;
   std_msgs::msg::Header header_;
