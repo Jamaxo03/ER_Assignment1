@@ -12,8 +12,6 @@ def generate_launch_description():
     pkg_assignment = get_package_share_directory('assignment')
     config = os.path.join(pkg_assignment, 'config', 'sim.yaml')
 
-    # DDS middleware: Cyclone DDS for every process started by this launch file
-    # (it must be the first action, so that Gazebo, bridges and nodes inherit it)
     rmw = SetEnvironmentVariable('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp')
 
     simulation = IncludeLaunchDescription(

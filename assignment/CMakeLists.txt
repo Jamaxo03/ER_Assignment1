@@ -32,7 +32,6 @@ install(PROGRAMS
   RENAME aruco_detector
 )
 
-# launch files and YAML parameters
 install(DIRECTORY
   launch
   config

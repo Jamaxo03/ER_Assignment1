@@ -22,7 +22,7 @@ class ImageProcessorNode(Node):
             cv2.aruco.DICT_ARUCO_ORIGINAL
         )
 
-        # detector with default parameters, to obtain marker corners and ids.
+        # detector with default parameters, to obtain marker corners and ids
         if hasattr(cv2.aruco, 'ArucoDetector'):
             detector = cv2.aruco.ArucoDetector(self.dictionary, cv2.aruco.DetectorParameters())
             self.detect_markers = detector.detectMarkers
@@ -31,13 +31,9 @@ class ImageProcessorNode(Node):
             self.detect_markers = lambda image: cv2.aruco.detectMarkers(
                 image, self.dictionary, parameters=parameters)
 
-        # ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
-        # image_topic is the full name of the COMPRESSED (JPEG) stream: the raw image is never
-        # transferred, which keeps the bandwidth low over Wi-Fi with the real ROSbot
         image_topic = self.declare_parameter('image_topic', '/camera/image/compressed').value
         marker_array_topic = self.declare_parameter('marker_array_topic', '/marker_array').value
 
-        # reliable (Gazebo bridge) or best effort (ROSbot), this subscriber matches both
         self.sub = self.create_subscription(
             CompressedImage, image_topic, self.image_callback, qos_profile_sensor_data)
 
@@ -63,7 +59,7 @@ class ImageProcessorNode(Node):
 
     def image_callback(self, msg):
         try:
-            # decode the JPEG CompressedImage message into an OpenCV image (BGR matrix)
+        # decode the JPEG CompressedImage message into an OpenCV image (BGR matrix)
             cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, desired_encoding='bgr8') 
         except CvBridgeError as error:
             self.get_logger().error(f'Could not convert camera image: {error}')
@@ -73,13 +69,13 @@ class ImageProcessorNode(Node):
         gray_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         marker_corners, marker_ids, _ = self.detect_markers(gray_image)
 
-        # all the markers seen in this frame (empty list = no marker in view)
+        # list of all the marker seen (empty list = no marker in view)
         observations = MarkerArray()
         observations.header = msg.header
 
         if marker_ids is not None:
             for marker_id, corners in zip(marker_ids.flatten(), marker_corners):
-                # smallest circle containing the 4 marker corners (as in example_ball.py)
+                # smallest circle containing the 4 marker corners
                 ((x, y), radius) = cv2.minEnclosingCircle(corners.reshape((4, 2)))
 
                 # pixel features for the IBVS
@@ -92,8 +88,8 @@ class ImageProcessorNode(Node):
                 marker.side = float(self._marker_side_length(corners))
 
                 observations.markers.append(marker)
-                    
-        # published on every frame, also when empty
+
+        # publisher to always send what the camera sees             
         self.pub_marker.publish(observations)
 
 def main(args=None):

@@ -30,7 +30,7 @@ private:
     bool service_request_sent_ = false;
     bool service_response_success_ = false;
 
-    // becomes true at the first /odom message: the simulation is running
+    // flag becomes true at the first /odom message: the simulation is running
     bool odom_received_ = false;
 
     // camera intrinsics from camera_info (fx = K[0], cx = K[2])
@@ -38,7 +38,7 @@ private:
     double cx_ = 0.0;
     bool camera_info_received_ = false;
 
-    // ROS parameters (see config/sim.yaml and config/rosbot.yaml)
+    // ROS parameters 
     double reference_side_;
     double reference_fx_;
     double forward_speed_;
@@ -66,7 +66,7 @@ private:
 // rotation angle variable 
     double rotation_angle_;
 
-//robot current position variables
+// robot current position variables
     double robot_x_; 
     double robot_y_;
     double robot_yaw_;
@@ -84,7 +84,6 @@ private:
     void fsm();
 
 // robot motion functions declarations
-
 // move forward function  
     void moveForward(double speed);
 
@@ -134,8 +133,6 @@ MarkerSubscriber::MarkerSubscriber()
     robot_y_(0.0),
     robot_yaw_(0.0)
     {
-
-        // ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
         const std::string marker_array_topic =
             this->declare_parameter<std::string>("marker_array_topic", "/marker_array");
         const std::string odom_topic =
@@ -270,6 +267,7 @@ void MarkerSubscriber::fsm(){
                 this->get_logger(),
                 "Robot started. Entering MOVE state.");
 
+            // after everything is ok go to move state 
             current_state_ = MOVE;
         break;
 
@@ -278,16 +276,16 @@ void MarkerSubscriber::fsm(){
                 RCLCPP_INFO(
                 this->get_logger(),
                 "MOVE state, target_id: %d.", target_id_);
-
-            // muovo il robot avanti dopo aver eseguito un istruzione (o in partenza)
-            // robot fermo
-            // deve ripartire (comando ripartire) 
+        
+            // check if the camera sees a marker 
             if(marker_visible_)
             {
+                // go to align and approach if marker visible 
                 current_state_ = ALIGN_AND_APPROACH;
             }
             else
             {
+                // move forward until a marker is visible 
                 moveForward(forward_speed_);
             }
 
@@ -303,19 +301,18 @@ void MarkerSubscriber::fsm(){
             // marker lost
             if(!marker_visible_)
             {
+                // re-enter move state to search again a marker to align with 
                 current_state_ = MOVE;
                 break;
             }
 
             // desired side scaled with the focal length: sd = sd_ref * fx / fx_ref
-            // (in simulation fx == reference_fx, so sd = 166 px as before)
             const double scale = fx_ / reference_fx_;
             double desired_side = reference_side_ * scale;
             double side_tolerance = side_tolerance_;
 
             if(target_id_ == 4)
             {
-                // diminuita distanza in px per garantire ultimo marker venga visto
                 desired_side = 168.0 * scale;
                 side_tolerance = 0.5;
             }
@@ -325,11 +322,14 @@ void MarkerSubscriber::fsm(){
 
              if(std::abs(u_error) < u_tolerance_ && std::abs(side_error) < side_tolerance)
             {
+                // stop robot when we are in front of the marker 
                 stopRobot();
+                // take photo of the marker 
                 current_state_ = TAKE_PHOTO;
             }
             else
             {
+                // alignment correction if we aren't in front of the marker before taking the photo
                 double omega = -k_omega_ * u_error;
                 double v = k_v_ * side_error;
                 twist(v, omega);
@@ -340,6 +340,7 @@ void MarkerSubscriber::fsm(){
 
         case TAKE_PHOTO:
         {
+            // service call to take photo 
             if (service_response_received_) {
                 service_response_received_ = false;
                 service_request_sent_ = false;
@@ -350,6 +351,7 @@ void MarkerSubscriber::fsm(){
             break;
         }
         
+        // instruction execution 
         case EXECUTE:
 
             RCLCPP_INFO(
@@ -409,6 +411,7 @@ void MarkerSubscriber::fsm(){
                         
         break;
 
+        // state to handle rotations 
         case ROTATE:
         {
 
@@ -416,7 +419,6 @@ void MarkerSubscriber::fsm(){
                 this->get_logger(),
                 "ROTATE state, target_id: %d.", target_id_);
 
-            // state to handle rotations
             static bool initialized = false;
             static double target_yaw;
 
@@ -450,6 +452,7 @@ void MarkerSubscriber::fsm(){
         break;
         }
 
+        // state after all the executions of the markers 
         case FINISH:
         {
             // stops the robot

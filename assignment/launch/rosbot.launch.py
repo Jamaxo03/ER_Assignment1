@@ -10,8 +10,8 @@ from launch_ros.actions import Node
 def generate_launch_description():
     pkg_assignment = get_package_share_directory('assignment')
 
-    # DDS middleware: Cyclone DDS for every node started by this launch file.
-    # The ROSbot must be reachable with the same ROS_DOMAIN_ID (10, 11 or 12).
+    # Cyclone DDS for every node started by this launch file
+    # ROS_DOMAIN_ID for reaching the robot 
     rmw = SetEnvironmentVariable('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp')
 
     config_arg = DeclareLaunchArgument(

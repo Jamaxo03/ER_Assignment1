@@ -1,31 +1,29 @@
 aruco_detector:
   ros__parameters:
-    image_topic: /rosbot_3/camera/rgb/image_raw/compressed    # compressed (JPEG) stream
-    marker_array_topic: /marker_array
+    image_topic: /rosbot_3/camera/rgb/image_raw/compressed    # compressed image stream topic 
+    marker_array_topic: /marker_array                         # array with marker id topic 
 
 take_photo_service:
   ros__parameters:
-    image_topic: /rosbot_3/camera/rgb/image_raw/compressed    # compressed (JPEG) stream
-    marker_image_topic: /marker_image
+    image_topic: /rosbot_3/camera/rgb/image_raw/compressed    
+    marker_image_topic: /marker_image                         # id image topic 
     show_image: true
 
 fsm_node:
   ros__parameters:
     marker_array_topic: /marker_array
-    odom_topic: /rosbot_3/odometry/filtered
-    cmd_vel_topic: /rosbot_3/cmd_vel
-    camera_info_topic: /rosbot_3/camera/rgb/camera_info
+    odom_topic: /rosbot_3/odometry/filtered               # odometry topic 
+    cmd_vel_topic: /rosbot_3/cmd_vel                      # velocity topic 
+    camera_info_topic: /rosbot_3/camera/rgb/camera_info   # camera topic 
 
-    # same reference as in simulation: the node rescales it with the real fx
-    # (desired_side = reference_side * fx / reference_fx)
-    reference_side: 166.0
-    reference_fx: 381.36
+    reference_side: 166.0  # pixel value for reference 
+    reference_fx: 381.36   # value reference scaled 
 
-    # gains and tolerances (slower on the real robot)
+    # gains and tolerances
     forward_speed: 0.05      # m/s
     k_omega: 0.01
     k_v: 0.0025
-    u_tolerance: 20.0         # px
-    side_tolerance: 5.0       # px
+    u_tolerance: 20.0        # px
+    side_tolerance: 5.0      # px
     k_rot: 0.5
-    yaw_tolerance: 0.05       # rad
+    yaw_tolerance: 0.05      # rad

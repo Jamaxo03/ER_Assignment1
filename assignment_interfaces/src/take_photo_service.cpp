@@ -24,14 +24,12 @@ public:
   : Node("take_photo_service_node"),
     show_image_(declare_parameter<bool>("show_image", true))
   {
-    
-    // ROS parameters: defaults = simulation, overridden by config/sim.yaml or config/rosbot.yaml
-    // image_topic is the full name of the COMPRESSED (JPEG) camera stream
     const std::string image_topic =
       declare_parameter<std::string>("image_topic", "/camera/image/compressed");
     const std::string marker_image_topic =
       declare_parameter<std::string>("marker_image_topic", "/marker_image");
 
+    // service to take photos from the camera 
     service_ = create_service<TakePhoto>(
       "take_photo",
       std::bind(
@@ -39,6 +37,7 @@ public:
         std::placeholders::_1, std::placeholders::_2));
 
     // marker_image_pub_ = create_publisher<sensor_msgs::msg::Image>(marker_image_topic, 10);
+    // publisher for the image 
     marker_image_pub_ = image_transport::create_publisher(this, marker_image_topic);
 
     dictionary_ =
@@ -49,8 +48,7 @@ public:
       cv::namedWindow("ArUco detection", cv::WINDOW_AUTOSIZE);
     }
 
-    // plain subscription to the CompressedImage topic (same as the Python detector).
-    // sensor_data QoS (best effort) matches both the Gazebo bridge and the ROSbot camera
+    // subscription to the CompressedImage topic
     image_subscriber_ = create_subscription<sensor_msgs::msg::CompressedImage>(
       image_topic, rclcpp::SensorDataQoS(),
       std::bind(
@@ -126,7 +124,6 @@ private:
 
     // retransform cv matrix in ros message (image) and publish it on image_with_circle topic
     auto out_msg = cv_bridge::CvImage(header_, "bgr8", marker_image_).toImageMsg();
-    //marker_image_pub_->publish(*out_msg);
     marker_image_pub_.publish(*out_msg);
 
     if (show_image_) {
@@ -139,7 +136,6 @@ private:
 
   void image_callback(const sensor_msgs::msg::CompressedImage::ConstSharedPtr msg)
   {
-    // keep only the header: it is reused for the annotated /marker_image
     header_ = msg->header;
     try {
       // decode the JPEG payload into a BGR OpenCV matrix
@@ -153,7 +149,6 @@ private:
 
   bool show_image_;
   rclcpp::Service<TakePhoto>::SharedPtr service_;
-  //rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr marker_image_pub_;
   image_transport::Publisher marker_image_pub_;
   rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr image_subscriber_;
   cv::Mat marker_image_;

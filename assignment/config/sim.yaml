@@ -1,24 +1,23 @@
 aruco_detector:
   ros__parameters:
-    image_topic: /camera/image/compressed    # compressed (JPEG) stream
-    marker_array_topic: /marker_array
+    image_topic: /camera/image/compressed    # compressed image stream topic 
+    marker_array_topic: /marker_array        # array with marker id topic 
 
 take_photo_service:
   ros__parameters:
-    image_topic: /camera/image/compressed    # compressed (JPEG) stream
-    marker_image_topic: /marker_image
+    image_topic: /camera/image/compressed    
+    marker_image_topic: /marker_image        # id image topic 
     show_image: true
 
 fsm_node:
   ros__parameters:
     marker_array_topic: /marker_array
-    odom_topic: /odometry/filtered
-    cmd_vel_topic: /cmd_vel
-    camera_info_topic: /camera/camera_info
+    odom_topic: /odometry/filtered           # odometry topic 
+    cmd_vel_topic: /cmd_vel                  # velocity topic 
+    camera_info_topic: /camera/camera_info   # camera topic 
 
-    # IBVS target: 166 px measured with the simulated camera (fx = 381.36)
-    reference_side: 166.0
-    reference_fx: 381.36
+    reference_side: 166.0     # pixel value for reference 
+    reference_fx: 381.36      # value reference scaled 
 
     # gains and tolerances
     forward_speed: 0.2        # m/s, while searching for the marker
